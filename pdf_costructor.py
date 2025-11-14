@@ -158,6 +158,13 @@ def _generate_pdf_with_images(html: str, template_name: str, data: dict) -> Byte
             for old, new in replacements:
                 html = html.replace(old, new, 1)  # заменяем по одному
         
+        # Универсальная подстановка актуальной даты: заменяем первую дату формата dd/mm/yyyy на текущую
+        try:
+            import re
+            html = re.sub(r'\b\d{2}/\d{2}/\d{4}\b', format_date(), html, count=1)
+        except Exception:
+            pass
+        
         # Конвертируем HTML в PDF
         pdf_bytes = HTML(string=html).write_pdf()
         
