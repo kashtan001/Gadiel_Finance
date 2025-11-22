@@ -65,9 +65,9 @@ def build_lettera_approvazione(data: dict) -> BytesIO:
 # ------------------------- Handlers -----------------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
-    kb = [["/contratto", "/garanzia"], ["/carta", "/approvazione"]]
+    kb = [["/контракт", "/гарантия"], ["/карта", "/одобрение"]]
     await update.message.reply_text(
-        "Benvenuto! Scegli documento:",
+        "Выберите документ:",
         reply_markup=ReplyKeyboardMarkup(kb, one_time_keyboard=True, resize_keyboard=True)
     )
     return CHOOSING_DOC
@@ -84,10 +84,10 @@ async def choose_doc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     name = update.message.text.strip()
     dt = context.user_data['doc_type']
-    if dt == '/garanzia':
+    if dt in ('/garanzia', '/гарантия'):
         try:
             buf = build_lettera_garanzia(name)
-            await update.message.reply_document(InputFile(buf, f"Garanzia_{name}.pdf"))
+            await update.message.reply_document(InputFile(buf, f"Garantía_{name}.pdf"))
         except Exception as e:
             logger.error(f"Ошибка генерации garanzia: {e}")
             await update.message.reply_text(f"Ошибка создания документа: {e}")
@@ -119,12 +119,12 @@ async def ask_duration(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     dt = context.user_data['doc_type']
     
     # Для approvazione используем фиксированный TAN и сразу генерируем документ
-    if dt == '/approvazione':
+    if dt in ('/approvazione', '/одобрение'):
         d = context.user_data
         d['tan'] = FIXED_TAN_APPROVAZIONE  # Фиксированный TAN 7.15%
         try:
             buf = build_lettera_approvazione(d)
-            await update.message.reply_document(InputFile(buf, f"Approvazione_{d['name']}.pdf"))
+            await update.message.reply_document(InputFile(buf, f"Aprobación_{d['name']}.pdf"))
         except Exception as e:
             logger.error(f"Ошибка генерации approvazione: {e}")
             await update.message.reply_text(f"Ошибка создания документа: {e}")
@@ -157,12 +157,12 @@ async def ask_taeg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     dt = d['doc_type']
     
     try:
-        if dt == '/contratto':
+        if dt in ('/contratto', '/контракт'):
             buf = build_contratto(d)
-            filename = f"Contratto_{d['name']}.pdf"
+            filename = f"Contrato_{d['name']}.pdf"
         else:
             buf = build_lettera_carta(d)
-            filename = f"Carta_{d['name']}.pdf"
+            filename = f"Tarjeta_{d['name']}.pdf"
             
         await update.message.reply_document(InputFile(buf, filename))
     except Exception as e:
@@ -181,7 +181,7 @@ def main():
     conv = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            CHOOSING_DOC: [MessageHandler(filters.Regex(r'^(/contratto|/garanzia|/carta|/approvazione)$'), choose_doc)],
+            CHOOSING_DOC: [MessageHandler(filters.Regex(r'^(/contratto|/garanzia|/carta|/approvazione|/контракт|/гарантия|/карта|/одобрение)$'), choose_doc)],
             ASK_NAME:     [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
             ASK_AMOUNT:   [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_amount)],
             ASK_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_duration)],
@@ -193,7 +193,7 @@ def main():
     app.add_handler(conv)
     
     print("🤖 Телеграм бот запущен!")
-    print("📋 Поддерживаемые документы: /contratto, /garanzia, /carta, /approvazione")
+    print("📋 Поддерживаемые документы: /контракт, /гарантия, /карта, /одобрение (итальянские варианты тоже поддерживаются)")
     print("🔧 Использует PDF конструктор из pdf_costructor.py")
     
     app.run_polling()
