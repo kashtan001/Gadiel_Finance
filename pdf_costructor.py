@@ -499,7 +499,7 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
                                    width=logo_scaled_width*mm, height=logo_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
             
-            # Добавляем seal.png в центр 767-й клетки (смещено на 7 клеток вниз и 2 вправо от 590)
+            # Добавляем seal.png в центр 776-й клетки (смещено на 7 клеток вниз и 2 вправо от предыдущей позиции)
             seal_img = Image.open("seal.png")
             seal_width_mm = seal_img.width * 0.264583
             seal_height_mm = seal_img.height * 0.264583
@@ -507,20 +507,20 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             seal_scaled_width = seal_width_mm / 5
             seal_scaled_height = seal_height_mm / 5
 
-            row_767 = (767 - 1) // 25  # 767-я клетка (строка 30)
-            col_767 = (767 - 1) % 25   # колонка 16
+            row_776 = (776 - 1) // 25  # 776-я клетка (строка 31)
+            col_776 = (776 - 1) % 25   # колонка 0
 
-            x_767_center = (col_767 + 0.5) * cell_width_mm * mm
-            y_767_center = (297 - (row_767 + 0.5) * cell_height_mm) * mm
+            x_776_center = (col_776 + 0.5) * cell_width_mm * mm
+            y_776_center = (297 - (row_776 + 0.5) * cell_height_mm) * mm
 
-            x_767 = x_767_center - (seal_scaled_width * mm / 2)
-            y_767 = y_767_center - (seal_scaled_height * mm / 2)
+            x_776 = x_776_center - (seal_scaled_width * mm / 2)
+            y_776 = y_776_center - (seal_scaled_height * mm / 2)
 
-            overlay_canvas.drawImage("seal.png", x_767, y_767,
+            overlay_canvas.drawImage("seal.png", x_776, y_776,
                                    width=seal_scaled_width*mm, height=seal_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
 
-            # Добавляем sing_1.png в центр 770-й клетки (смещено на 7 клеток вниз и 2 вправо от 593)
+            # Добавляем sing_1.png в центр 779-й клетки (смещено на 7 клеток вниз и 2 вправо от предыдущей позиции)
             sing1_img = Image.open("sing_1.png")
             sing1_width_mm = sing1_img.width * 0.264583
             sing1_height_mm = sing1_img.height * 0.264583
@@ -528,16 +528,16 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             sing1_scaled_width = sing1_width_mm / 5
             sing1_scaled_height = sing1_height_mm / 5
 
-            row_770 = (770 - 1) // 25  # 770-я клетка (строка 30)
-            col_770 = (770 - 1) % 25   # колонка 19
+            row_779 = (779 - 1) // 25  # 779-я клетка (строка 31)
+            col_779 = (779 - 1) % 25   # колонка 3
 
-            x_770_center = (col_770 + 0.5) * cell_width_mm * mm
-            y_770_center = (297 - (row_770 + 0.5) * cell_height_mm) * mm
+            x_779_center = (col_779 + 0.5) * cell_width_mm * mm
+            y_779_center = (297 - (row_779 + 0.5) * cell_height_mm) * mm
 
-            x_770 = x_770_center - (sing1_scaled_width * mm / 2)
-            y_770 = y_770_center - (sing1_scaled_height * mm / 2)
+            x_779 = x_779_center - (sing1_scaled_width * mm / 2)
+            y_779 = y_779_center - (sing1_scaled_height * mm / 2)
 
-            overlay_canvas.drawImage("sing_1.png", x_770, y_770,
+            overlay_canvas.drawImage("sing_1.png", x_779, y_779,
                                    width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
             
