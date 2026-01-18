@@ -29,89 +29,42 @@ def monthly_payment(amount: float, months: int, annual_rate: float) -> float:
     return round(num / den, 2)
 
 
-def generate_payment_schedule_table(amount: float, months: int, annual_rate: float, payment: float) -> str:
-    """
-    Генерирует HTML таблицу графика платежей (амортизационную таблицу) для пункта 6.
-    Вставляется в HTML на место <!-- PAYMENT_SCHEDULE_TABLE_PLACEHOLDER -->.
-    """
-    monthly_rate = (annual_rate / 100) / 12
-
-    table_html = """
-<table class="c18" style="width: 100%; border-collapse: collapse; margin: 10pt 0;">
-<tr class="c7">
-<td class="c4" style="border: 1pt solid #666666; padding: 5pt; text-align: center; font-weight: 700;"><span class="c3">Mes</span></td>
-<td class="c4" style="border: 1pt solid #666666; padding: 5pt; text-align: center; font-weight: 700;"><span class="c3">Pago</span></td>
-<td class="c4" style="border: 1pt solid #666666; padding: 5pt; text-align: center; font-weight: 700;"><span class="c3">Intereses</span></td>
-<td class="c4" style="border: 1pt solid #666666; padding: 5pt; text-align: center; font-weight: 700;"><span class="c3">Importe del préstamo</span></td>
-<td class="c4" style="border: 1pt solid #666666; padding: 5pt; text-align: center; font-weight: 700;"><span class="c3">Saldo pendiente</span></td>
-</tr>
-"""
-
-    remaining = float(amount)
-    for month in range(1, months + 1):
-        interest = remaining * monthly_rate
-        principal = payment - interest
-
-        # Последний платёж — корректируем, чтобы остаток стал 0
-        if month == months:
-            principal = remaining
-            interest = payment - principal
-            remaining = 0.0
-        else:
-            remaining = remaining - principal
-
-        interest = round(interest, 2)
-        principal = round(principal, 2)
-        remaining = round(remaining, 2)
-
-        payment_str = format_money(payment)
-        interest_str = format_money(interest)
-        principal_str = format_money(principal)
-        balance_str = format_money(remaining) if remaining > 0 else "0,00"
-
-        table_html += f"""
-<tr class="c7">
-<td class="c5" style="border: 1pt solid #666666; padding: 3pt; text-align: center;"><span class="c3">{month}</span></td>
-<td class="c5" style="border: 1pt solid #666666; padding: 3pt; text-align: right;"><span class="c9 c8">&euro; {payment_str}</span></td>
-<td class="c5" style="border: 1pt solid #666666; padding: 3pt; text-align: right;"><span class="c9 c8">&euro; {interest_str}</span></td>
-<td class="c5" style="border: 1pt solid #666666; padding: 3pt; text-align: right;"><span class="c9 c8">&euro; {principal_str}</span></td>
-<td class="c5" style="border: 1pt solid #666666; padding: 3pt; text-align: right;"><span class="c9 c8">&euro; {balance_str}</span></td>
-</tr>
-"""
-
-    table_html += "</table>"
-    return table_html
-
-
 def generate_signatures_table() -> str:
     """
     Генерирует две наложенные друг на друга таблицы:
-    1) Таблица с подписями (sing_1.png и sing_2.png)
-    2) Таблица с печатью (seal.png), наложенная со смещением
-    Изображения встраиваются как base64 для гарантированной загрузки в weasyprint.
+    1. Таблица с подписями (по рядам)
+    2. Таблица с печатью (смещена на 3 клетки вправо и вниз)
+    Изображения встраиваются как base64 для гарантированной загрузки
     """
     import os
     import base64
-
+    
+    # Получаем абсолютные пути к изображениям
     base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
-
-    def image_to_base64(filename: str) -> str | None:
+    
+    def image_to_base64(filename):
+        """Конвертирует изображение в base64 data URI"""
         img_path = os.path.join(base_dir, filename)
         if os.path.exists(img_path):
             with open(img_path, 'rb') as f:
-                img_base64 = base64.b64encode(f.read()).decode('utf-8')
-            mime_type = 'image/png' if filename.lower().endswith('.png') else 'image/jpeg'
-            return f"data:{mime_type};base64,{img_base64}"
+                img_data = f.read()
+                img_base64 = base64.b64encode(img_data).decode('utf-8')
+                # Определяем MIME тип по расширению
+                mime_type = 'image/png' if filename.endswith('.png') else 'image/jpeg'
+                return f"data:{mime_type};base64,{img_base64}"
         return None
-
-    sing_1_data = image_to_base64('sing_1.png')
+    
+    # Конвертируем изображения в base64
     sing_2_data = image_to_base64('sing_2.png')
+    sing_1_data = image_to_base64('sing_1.png')
     seal_data = image_to_base64('seal.png')
-
-    if not all([sing_1_data, sing_2_data, seal_data]):
-        print("⚠️  Не все изображения найдены для таблицы подписей/печати (sing_1.png, sing_2.png, seal.png)")
+    
+    # Проверяем, что все изображения загружены
+    if not all([sing_2_data, sing_1_data, seal_data]):
+        print("⚠️  Не все изображения найдены для таблицы подписей!")
         return ''
-
+    
+    # Таблица с подписями (базовая, по рядам)
     signatures_table = f'''
 <table class="signatures-table-base">
 <tr>
@@ -126,7 +79,8 @@ def generate_signatures_table() -> str:
 </tr>
 </table>
 '''
-
+    
+    # Таблица с печатью (наложенная, смещена на 3 клетки)
     seal_table = f'''
 <table class="signatures-table-overlay">
 <tr>
@@ -140,13 +94,16 @@ def generate_signatures_table() -> str:
 </tr>
 </table>
 '''
-
-    return f'''
+    
+    # Обертка для наложения таблиц
+    table_html = f'''
 <div class="signatures-tables-wrapper">
 {signatures_table}
 {seal_table}
 </div>
 '''
+    print("✅ Две наложенные таблицы созданы (подписи и печать)")
+    return table_html
 
 
 def generate_contratto_pdf(data: dict) -> BytesIO:
@@ -170,8 +127,110 @@ def generate_contratto_pdf(data: dict) -> BytesIO:
     if 'payment' not in data:
         data['payment'] = monthly_payment(data['amount'], data['duration'], data['tan'])
     
-    html = fix_html_layout('contratto')
-    return _generate_pdf_with_images(html, 'contratto', data)
+    # 1. Рассчитываем график платежей
+    schedule, total_payments, total_interest, overpayment = calculate_amortization_schedule(
+        data['amount'], 
+        data['duration'], 
+        data['tan']
+    )
+    
+    # 2. Генерируем HTML таблицы
+    schedule_html = generate_amortization_table_html(schedule)
+    
+    # 3. Подготавливаем дополнительные данные для замены
+    monthly_rate = (data['tan'] / 100) / 12
+    
+    data['schedule_monthly_rate'] = f"{monthly_rate:.12f}".replace('.', ',')
+    data['schedule_monthly_payment'] = format_money(data['payment'])
+    data['schedule_total_payments'] = format_money(total_payments)
+    data['schedule_overpayment'] = format_money(overpayment)
+    data['schedule_table'] = schedule_html
+    
+    # 4. Генерируем таблицу с подписями и печатью
+    signatures_html = generate_signatures_table()
+    data['signatures_table'] = signatures_html
+    
+    html = fix_html_layout('contrato')
+    return _generate_pdf_with_images(html, 'contrato', data)
+
+
+def calculate_amortization_schedule(amount: float, duration: int, annual_rate: float):
+    """
+    Рассчитывает график платежей (Plan de pagos).
+    Возвращает: список строк графика, общая сумма выплат, общая сумма процентов, переплата.
+    """
+    monthly_rate = (annual_rate / 100) / 12
+    payment = monthly_payment(amount, duration, annual_rate)
+    
+    schedule = []
+    balance = amount
+    total_interest = 0.0
+    total_payments = 0.0
+    
+    for month in range(1, duration + 1):
+        # Интерес за текущий месяц
+        interest = round(balance * monthly_rate, 2)
+        
+        # Основной долг
+        principal = round(payment - interest, 2)
+        
+        # Корректировка для последнего месяца
+        if month == duration:
+            principal = balance
+            payment = principal + interest
+        
+        # Если основной долг больше остатка (из-за округлений), корректируем
+        if principal > balance:
+            principal = balance
+            payment = principal + interest
+
+        balance = round(balance - principal, 2)
+        if balance < 0: balance = 0
+            
+        total_interest += interest
+        total_payments += payment
+        
+        schedule.append({
+            'month': month,
+            'payment': payment,
+            'interest': interest,
+            'principal': principal,
+            'balance': balance
+        })
+        
+    overpayment = total_payments - amount
+    return schedule, total_payments, total_interest, overpayment
+
+
+def generate_amortization_table_html(schedule: list) -> str:
+    """Генерирует HTML код таблицы графика платежей"""
+    
+    # Шапка таблицы
+    html = """
+    <table class="c18" style="width: 100%; border-collapse: collapse; margin-top: 10pt;">
+    <tr class="c7">
+        <td class="c4" style="text-align: center; border: 1px solid #666; padding: 3pt; background-color: #f0f0f0;"><p class="c15"><span class="c11 c6">Mes</span></p></td>
+        <td class="c4" style="text-align: center; border: 1px solid #666; padding: 3pt; background-color: #f0f0f0;"><p class="c15"><span class="c11 c6">Cuota</span></p></td>
+        <td class="c4" style="text-align: center; border: 1px solid #666; padding: 3pt; background-color: #f0f0f0;"><p class="c15"><span class="c11 c6">Intereses</span></p></td>
+        <td class="c4" style="text-align: center; border: 1px solid #666; padding: 3pt; background-color: #f0f0f0;"><p class="c15"><span class="c11 c6">Amortización</span></p></td>
+        <td class="c4" style="text-align: center; border: 1px solid #666; padding: 3pt; background-color: #f0f0f0;"><p class="c15"><span class="c11 c6">Saldo</span></p></td>
+    </tr>
+    """
+    
+    # Строки
+    for row in schedule:
+        html += f"""
+    <tr class="c7">
+        <td class="c5" style="text-align: center; border: 1px solid #ccc; padding: 2pt;"><p class="c2"><span class="c3">{row['month']}</span></p></td>
+        <td class="c5" style="text-align: right; border: 1px solid #ccc; padding: 2pt;"><p class="c2"><span class="c3">€ {format_money(row['payment'])}</span></p></td>
+        <td class="c5" style="text-align: right; border: 1px solid #ccc; padding: 2pt;"><p class="c2"><span class="c3">€ {format_money(row['interest'])}</span></p></td>
+        <td class="c5" style="text-align: right; border: 1px solid #ccc; padding: 2pt;"><p class="c2"><span class="c3">€ {format_money(row['principal'])}</span></p></td>
+        <td class="c5" style="text-align: right; border: 1px solid #ccc; padding: 2pt;"><p class="c2"><span class="c3">€ {format_money(row['balance'])}</span></p></td>
+    </tr>
+        """
+        
+    html += "</table>"
+    return html
 
 
 def generate_garanzia_pdf(name: str) -> BytesIO:
@@ -215,14 +274,14 @@ def generate_carta_pdf(data: dict) -> BytesIO:
 def generate_approvazione_pdf(data: dict) -> BytesIO:
     """
     API функция для генерации PDF письма об одобрении кредита
-    
+
     Args:
         data (dict): Словарь с данными {
             'name': str - ФИО клиента,
             'amount': float - Сумма кредита,
             'tan': float - TAN процентная ставка
         }
-    
+
     Returns:
         BytesIO: PDF файл в памяти
     """
@@ -240,59 +299,32 @@ def _generate_pdf_with_images(html: str, template_name: str, data: dict) -> Byte
         from PyPDF2 import PdfReader, PdfWriter
         from PIL import Image
         
-        # Заменяем XXX на реальные данные для contratto, carta, garanzia и approvazione
-        if template_name in ['contratto', 'carta', 'garanzia', 'approvazione']:
+        # Заменяем XXX на реальные данные для contrato/contratto, carta, garanzia и approvazione
+        if template_name in ['contrato', 'contratto', 'carta', 'garanzia', 'approvazione']:
             replacements = []
-            if template_name == 'contratto':
+            if template_name in ('contrato', 'contratto'):
                 replacements = [
                     ('XXX', data['name']),  # имя клиента (первое)
                     ('XXX', format_money(data['amount'])),  # сумма кредита
                     ('XXX', f"{data['tan']:.2f}%"),  # TAN
                     ('XXX', f"{data['taeg']:.2f}%"),  # TAEG  
-                    ('XXX', f"{data['duration']} mesi"),  # срок
+                    ('XXX', f"{data['duration']} mes"),  # срок
                     ('XXX', format_money(data['payment'])),  # платеж
-                    ('11/10/2025', format_date()),  # дата
+                    ('PAYMENT_SCHEDULE_MONTHLY_RATE', data.get('schedule_monthly_rate', '')),
+                    ('PAYMENT_SCHEDULE_MONTHLY_PAYMENT', data.get('schedule_monthly_payment', '')),
+                    ('PAYMENT_SCHEDULE_TOTAL_PAYMENTS', data.get('schedule_total_payments', '')),
+                    ('PAYMENT_SCHEDULE_OVERPAYMENT', data.get('schedule_overpayment', '')),
+                    ('<!-- PAYMENT_SCHEDULE_TABLE_PLACEHOLDER -->', data.get('schedule_table', '')),
+                    ('<!-- SIGNATURES_TABLE_PLACEHOLDER -->', data.get('signatures_table', '')),
+                    ('11/06/2025', format_date()),  # дата
                     ('XXX', data['name']),  # имя в подписи
                 ]
-
-                # Пункт 6: Plan de pagos — подстановка плейсхолдеров и таблицы
-                monthly_rate = (data['tan'] / 100) / 12
-                total_payments = data['payment'] * data['duration']
-                overpayment = total_payments - data['amount']
-
-                html = html.replace('PAYMENT_SCHEDULE_MONTHLY_RATE', f"{monthly_rate:.12f}")
-                html = html.replace('PAYMENT_SCHEDULE_MONTHLY_PAYMENT', f"&euro; {format_money(data['payment'])}")
-                html = html.replace('PAYMENT_SCHEDULE_TOTAL_PAYMENTS', f"&euro; {format_money(total_payments)}")
-                html = html.replace('PAYMENT_SCHEDULE_OVERPAYMENT', f"&euro; {format_money(overpayment)}")
-
-                payment_schedule_table = generate_payment_schedule_table(
-                    data['amount'],
-                    data['duration'],
-                    data['tan'],
-                    data['payment'],
-                )
-                
-                html = html.replace('<!-- PAYMENT_SCHEDULE_TABLE_PLACEHOLDER -->', payment_schedule_table)
-
-                # Добавляем класс к разделу 7 для принудительного разрыва страницы
-                import re
-                # Ищем параграф с "7. Firmas" и ПРЕДЫДУЩУЮ пунктирную линию
-                # Добавляем класс разрыва страницы к пунктирной линии
-                html = re.sub(
-                    r'(<p class="c2">\s*<span class="c1">-{10,}</span>\s*</p>)(\s*<p class="c2">\s*<span class="c12 c6">7\. Firmas</span>\s*</p>)',
-                    r'<p class="c2 section-7-firme"><span class="c1">------------------------------------------</span></p>\2',
-                    html
-                )
-
-                # Таблица с подписями и печатью
-                signatures_table = generate_signatures_table()
-                html = html.replace('<!-- SIGNATURES_TABLE_PLACEHOLDER -->', signatures_table)
             elif template_name == 'carta':
                 replacements = [
                     ('XXX', data['name']),  # имя клиента
                     ('XXX', format_money(data['amount'])),  # сумма кредита
                     ('XXX', f"{data['tan']:.2f}%"),  # TAN
-                    ('XXX', f"{data['duration']} mesi"),  # срок
+                    ('XXX', f"{data['duration']} mes"),  # срок
                     ('XXX', format_money(data['payment'])),  # платеж
                 ]
             elif template_name == 'garanzia':
@@ -301,22 +333,13 @@ def _generate_pdf_with_images(html: str, template_name: str, data: dict) -> Byte
                 ]
             elif template_name == 'approvazione':
                 replacements = [
-                    ('XXX', data['name']),  # имя клиента в Asunto
-                    ('XXX', data['name']),  # имя клиента в тексте (второй раз)
+                    ('XXX', data['name']),  # имя клиента
                     ('XXX', format_money(data['amount'])),  # сумма кредита
-                    ('XXX', f"{data['tan']:.2f}%"),  # TAN
-                    ('XXX', str(data['duration'])),  # срок в месяцах
+                    ('XXX', f"{data['tan']:.2f}%"),  # TIN
                 ]
-            
+
             for old, new in replacements:
                 html = html.replace(old, new, 1)  # заменяем по одному
-        
-        # Универсальная подстановка актуальной даты: заменяем первую дату формата dd/mm/yyyy на текущую
-        try:
-            import re
-            html = re.sub(r'\b\d{2}/\d{2}/\d{4}\b', format_date(), html, count=1)
-        except Exception:
-            pass
         
         # Конвертируем HTML в PDF
         pdf_bytes = HTML(string=html).write_pdf()
@@ -351,17 +374,17 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             company_width_mm = company_img.width * 0.264583  # пиксели в мм (96 DPI)
             company_height_mm = company_img.height * 0.264583
             
-            # Уменьшаем в 1.33 раза (было 1.6, увеличиваем еще на 20%)
-            company_scaled_width = company_width_mm / 1.33
-            company_scaled_height = company_height_mm / 1.33
+            # Уменьшаем в 1.33 раза (было 1.6, увеличиваем еще на 20%) + увеличиваем на 15%
+            company_scaled_width = (company_width_mm / 1.33) * 1.15
+            company_scaled_height = (company_height_mm / 1.33) * 1.15
             
             # Клетка 27 = строка 1, колонка 1 + сдвиг на 5 клеток вправо
             row_27 = (27 - 1) // 25  # строка 1
             col_27 = (27 - 1) % 25   # колонка 1
             
-            # Центр клетки 27 + смещение на 5 клеток вправо + 1.25 клетки правее + 1 клетка вправо + 1/3 клетки вправо - 3 клетки влево - 0.5 клетки влево
-            x_27_center = (col_27 + 5 + 0.5 + 1.25 + 1 + 1/3 - 3 - 0.5) * cell_width_mm * mm
-            y_27_center = (297 - (row_27 + 0.5 + 1 + 0.5) * cell_height_mm) * mm  # на 1.5 клетки вниз
+            # Центр клетки 27 + смещение на 5 клеток вправо + 1.25 клетки правее + 1 клетка вправо + 1/3 клетки вправо - 1.5 клетки левее - 1 клетка левее - 1/3 клетки левее + 1/2 клетки вправо
+            x_27_center = (col_27 + 5 + 0.5 + 1.25 + 1 + 1/3 - 1.5 - 1.0 - 1/3 + 0.5) * cell_width_mm * mm
+            y_27_center = (297 - (row_27 + 0.5 + 1 - 1/3 + 1.0 - 1/3 - 0.25) * cell_height_mm) * mm  # на 1 клетку вниз + 1/3 клетки вниз + 1 клетка вниз - 1/3 клетки вверх - 1/4 клетки вверх
             
             # Смещаем на половину размера изображения для центрирования
             x_27 = x_27_center - (company_scaled_width * mm / 2)
@@ -370,6 +393,25 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             # Рисуем company.png
             overlay_canvas.drawImage("company.png", x_27, y_27, 
                                    width=company_scaled_width*mm, height=company_scaled_height*mm,
+                                   mask='auto', preserveAspectRatio=True)
+            
+            # Добавляем logo.png как в contratto
+            logo_img = Image.open("logo.png")
+            logo_width_mm = logo_img.width * 0.264583
+            logo_height_mm = logo_img.height * 0.264583
+            
+            logo_scaled_width = logo_width_mm / 9  # такое же масштабирование как в contratto
+            logo_scaled_height = logo_height_mm / 9
+            
+            # Используем клетку 71 как в contratto для logo.png
+            row_71 = (71 - 1) // 25
+            col_71 = (71 - 1) % 25
+            
+            x_71 = (col_71 - 2 + 4 - 2.0) * cell_width_mm * mm  # на 2.0 клетки влево как в contratto
+            y_71 = (297 - (row_71 * cell_height_mm + cell_height_mm) - 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз как в contratto
+            
+            overlay_canvas.drawImage("logo.png", x_71, y_71, 
+                                   width=logo_scaled_width*mm, height=logo_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
             
             # Добавляем seal.png в центр 590-й клетки с уменьшением в 5 раз
@@ -415,207 +457,234 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
                                    mask='auto', preserveAspectRatio=True)
             
             overlay_canvas.save()
-            print("🖼️ Добавлены изображения для garanzia через ReportLab API")
+            print("🖼️ Добавлены изображения для garanzia через ReportLab API: company.png (сдвинут на 2.33 клетки левее, увеличен на 15%, +1.08 вниз), logo.png (как в contratto), seal.png, sing_1.png")
         
-        elif template_name == 'carta':
-            # Добавляем company.png как в contratto
-            img = Image.open("company.png")
-            img_width_mm = img.width * 0.264583
-            img_height_mm = img.height * 0.264583
+        elif template_name in ['carta', 'approvazione']:
+            # Добавляем company.png по аналогии с contratto
+            company_img = Image.open("company.png")
+            company_width_mm = company_img.width * 0.264583
+            company_height_mm = company_img.height * 0.264583
             
-            scaled_width = (img_width_mm / 2) * 1.44  # +44% как в contratto
-            scaled_height = (img_height_mm / 2) * 1.44
+            # Используем те же параметры масштабирования что и в contratto + увеличиваем на 30%
+            company_scaled_width = (company_width_mm / 2) * 1.44 * 1.3  # +44% + еще 30%
+            company_scaled_height = (company_height_mm / 2) * 1.44 * 1.3
             
+            # Используем клетку 52 как в contratto
             row_52 = (52 - 1) // 25 + 1  # строка 3
             col_52 = (52 - 1) % 25 + 1   # колонка 2
             
             x_52 = (col_52 * cell_width_mm - 0.5 * cell_width_mm - (1/6) * cell_width_mm + 0.25 * cell_width_mm) * mm  # на 1/4 клетки вправо
-            y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз
+            y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 0.5 * cell_height_mm) * mm  # на 1/4 клетки вверх - 1/2 клетки вниз
             
             overlay_canvas.drawImage("company.png", x_52, y_52, 
-                                   width=scaled_width*mm, height=scaled_height*mm, 
+                                   width=company_scaled_width*mm, height=company_scaled_height*mm, 
                                    mask='auto', preserveAspectRatio=True)
             
-            # Добавляем seal.png в центр 590-й клетки
-            seal_img = Image.open("seal.png")
-            seal_width_mm = seal_img.width * 0.264583
-            seal_height_mm = seal_img.height * 0.264583
-            
-            seal_scaled_width = seal_width_mm / 5
-            seal_scaled_height = seal_height_mm / 5
-            
-            row_590 = (590 - 1) // 25
-            col_590 = (590 - 1) % 25
-            
-            x_590_center = (col_590 + 0.5) * cell_width_mm * mm
-            y_590_center = (297 - (row_590 + 0.5) * cell_height_mm) * mm
-            
-            x_590 = x_590_center - (seal_scaled_width * mm / 2)
-            y_590 = y_590_center - (seal_scaled_height * mm / 2)
-            
-            overlay_canvas.drawImage("seal.png", x_590, y_590, 
-                                   width=seal_scaled_width*mm, height=seal_scaled_height*mm,
-                                   mask='auto', preserveAspectRatio=True)
-            
-            # Добавляем sing_1.png в центр 593-й клетки
-            sing1_img = Image.open("sing_1.png")
-            sing1_width_mm = sing1_img.width * 0.264583
-            sing1_height_mm = sing1_img.height * 0.264583
-            
-            sing1_scaled_width = sing1_width_mm / 5
-            sing1_scaled_height = sing1_height_mm / 5
-            
-            row_593 = (593 - 1) // 25
-            col_593 = (593 - 1) % 25
-            
-            x_593_center = (col_593 + 0.5) * cell_width_mm * mm
-            y_593_center = (297 - (row_593 + 0.5) * cell_height_mm) * mm
-            
-            x_593 = x_593_center - (sing1_scaled_width * mm / 2)
-            y_593 = y_593_center - (sing1_scaled_height * mm / 2)
-            
-            overlay_canvas.drawImage("sing_1.png", x_593, y_593, 
-                                   width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
-                                   mask='auto', preserveAspectRatio=True)
-            
-            overlay_canvas.save()
-            print(f"🖼️ Добавлены изображения для {template_name} через ReportLab API")
-        
-        elif template_name == 'approvazione':
-            # Страница 1 - только company.png
-            img = Image.open("company.png")
-            img_width_mm = img.width * 0.264583
-            img_height_mm = img.height * 0.264583
-            
-            scaled_width = (img_width_mm / 2) * 1.44
-            scaled_height = (img_height_mm / 2) * 1.44
-            
-            row_52 = (52 - 1) // 25 + 1
-            col_52 = (52 - 1) % 25 + 1
-            
-            x_52 = (col_52 * cell_width_mm - 0.5 * cell_width_mm - (1/6) * cell_width_mm + 0.25 * cell_width_mm) * mm
-            y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 1 * cell_height_mm) * mm
-            
-            overlay_canvas.drawImage("company.png", x_52, y_52, 
-                                   width=scaled_width*mm, height=scaled_height*mm, 
-                                   mask='auto', preserveAspectRatio=True)
-            
-            overlay_canvas.showPage()
-            
-            # Страница 2 - печать и подпись
-            # Добавляем seal.png в центр 590-й клетки
-            seal_img = Image.open("seal.png")
-            seal_width_mm = seal_img.width * 0.264583
-            seal_height_mm = seal_img.height * 0.264583
-            
-            seal_scaled_width = seal_width_mm / 5
-            seal_scaled_height = seal_height_mm / 5
-            
-            row_590 = (590 - 1) // 25
-            col_590 = (590 - 1) % 25
-            
-            x_590_center = (col_590 + 0.5) * cell_width_mm * mm
-            y_590_center = (297 - (row_590 + 0.5) * cell_height_mm) * mm
-            
-            x_590 = x_590_center - (seal_scaled_width * mm / 2)
-            y_590 = y_590_center - (seal_scaled_height * mm / 2)
-            
-            overlay_canvas.drawImage("seal.png", x_590, y_590, 
-                                   width=seal_scaled_width*mm, height=seal_scaled_height*mm,
-                                   mask='auto', preserveAspectRatio=True)
-            
-            # Добавляем sing_1.png в центр 593-й клетки
-            sing1_img = Image.open("sing_1.png")
-            sing1_width_mm = sing1_img.width * 0.264583
-            sing1_height_mm = sing1_img.height * 0.264583
-            
-            sing1_scaled_width = sing1_width_mm / 5
-            sing1_scaled_height = sing1_height_mm / 5
-            
-            row_593 = (593 - 1) // 25
-            col_593 = (593 - 1) % 25
-            
-            x_593_center = (col_593 + 0.5) * cell_width_mm * mm
-            y_593_center = (297 - (row_593 + 0.5) * cell_height_mm) * mm
-            
-            x_593 = x_593_center - (sing1_scaled_width * mm / 2)
-            y_593 = y_593_center - (sing1_scaled_height * mm / 2)
-            
-            overlay_canvas.drawImage("sing_1.png", x_593, y_593, 
-                                   width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
-                                   mask='auto', preserveAspectRatio=True)
-            
-            overlay_canvas.save()
-            print(f"🖼️ Добавлены изображения для approvazione через ReportLab API (печать и подпись на странице 2)")
-        
-        elif template_name == 'contratto':
-            # Страница 1 - добавляем company.png и logo.png
-            img = Image.open("company.png")
-            img_width_mm = img.width * 0.264583
-            img_height_mm = img.height * 0.264583
-            
-            scaled_width = (img_width_mm / 2) * 1.44  # +44% (было +20%, теперь еще +20%)
-            scaled_height = (img_height_mm / 2) * 1.44
-            
-            row_52 = (52 - 1) // 25 + 1  # строка 3
-            col_52 = (52 - 1) % 25 + 1   # колонка 2
-            
-            x_52 = (col_52 * cell_width_mm - 0.5 * cell_width_mm - (1/6) * cell_width_mm + 0.25 * cell_width_mm) * mm  # на 1/4 клетки вправо
-            y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз
-            
-            overlay_canvas.drawImage("company.png", x_52, y_52, 
-                                   width=scaled_width*mm, height=scaled_height*mm, 
-                                   mask='auto', preserveAspectRatio=True)
-            
-            # Добавляем logo.png
+            # Добавляем logo.png как в contratto
             logo_img = Image.open("logo.png")
             logo_width_mm = logo_img.width * 0.264583
             logo_height_mm = logo_img.height * 0.264583
             
-            logo_scaled_width = logo_width_mm / 9
+            logo_scaled_width = logo_width_mm / 9  # такое же масштабирование как в contratto
             logo_scaled_height = logo_height_mm / 9
             
+            # Используем клетку 71 как в contratto для logo.png
             row_71 = (71 - 1) // 25
             col_71 = (71 - 1) % 25
             
-            x_71 = (col_71 - 2 + 4 - 1.5 - 1) * cell_width_mm * mm  # на 2.5 клетки влево (было 1.5, добавили еще 1)
-            y_71 = (297 - (row_71 * cell_height_mm + cell_height_mm) - 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз
+            x_71 = (col_71 - 2 + 4 - 2.0) * cell_width_mm * mm  # на 2.0 клетки влево как в contratto
+            y_71 = (297 - (row_71 * cell_height_mm + cell_height_mm) - 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз как в contratto
             
             overlay_canvas.drawImage("logo.png", x_71, y_71, 
                                    width=logo_scaled_width*mm, height=logo_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
             
-            # Нумерация страницы 1
-            row_862_p1 = (862 - 1) // 25
-            col_862_p1 = (862 - 1) % 25
-            
-            x_page_num_p1 = (col_862_p1 + 1 + 0.5) * cell_width_mm * mm
-            y_page_num_p1 = (297 - (row_862_p1 * cell_height_mm + cell_height_mm/2) - 0.25 * cell_height_mm + 0.25 * cell_height_mm) * mm  # на 1/4 клетки вверх
-            
-            overlay_canvas.setFillColorRGB(0, 0, 0)
-            overlay_canvas.setFont("Helvetica", 10)
-            overlay_canvas.drawString(x_page_num_p1-2, y_page_num_p1-2, "1")
-            
-            overlay_canvas.showPage()
-            
-            # Страница 2 - добавляем только logo.png (подписи/печать теперь в HTML-таблице после пункта 7)
-            overlay_canvas.drawImage("logo.png", x_71, y_71, 
-                                   width=logo_scaled_width*mm, height=logo_scaled_height*mm,
+            # Добавляем seal.png в центр 767-й клетки (смещено на 7 клеток вниз и 2 вправо от 590)
+            seal_img = Image.open("seal.png")
+            seal_width_mm = seal_img.width * 0.264583
+            seal_height_mm = seal_img.height * 0.264583
+
+            seal_scaled_width = seal_width_mm / 5
+            seal_scaled_height = seal_height_mm / 5
+
+            row_767 = (767 - 1) // 25  # 767-я клетка (строка 30)
+            col_767 = (767 - 1) % 25   # колонка 16
+
+            x_767_center = (col_767 + 0.5) * cell_width_mm * mm
+            y_767_center = (297 - (row_767 + 0.5) * cell_height_mm) * mm
+
+            x_767 = x_767_center - (seal_scaled_width * mm / 2)
+            y_767 = y_767_center - (seal_scaled_height * mm / 2)
+
+            overlay_canvas.drawImage("seal.png", x_767, y_767,
+                                   width=seal_scaled_width*mm, height=seal_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
-            
-            # Нумерация страницы 2
-            row_862 = (862 - 1) // 25
-            col_862 = (862 - 1) % 25
-            
-            x_page_num = (col_862 + 1 + 0.5) * cell_width_mm * mm
-            y_page_num = (297 - (row_862 * cell_height_mm + cell_height_mm/2) - 0.25 * cell_height_mm + 0.25 * cell_height_mm) * mm  # на 1/4 клетки вверх
-            
-            overlay_canvas.setFillColorRGB(0, 0, 0)
-            overlay_canvas.setFont("Helvetica", 10)
-            overlay_canvas.drawString(x_page_num-2, y_page_num-2, "2")
+
+            # Добавляем sing_1.png в центр 770-й клетки (смещено на 7 клеток вниз и 2 вправо от 593)
+            sing1_img = Image.open("sing_1.png")
+            sing1_width_mm = sing1_img.width * 0.264583
+            sing1_height_mm = sing1_img.height * 0.264583
+
+            sing1_scaled_width = sing1_width_mm / 5
+            sing1_scaled_height = sing1_height_mm / 5
+
+            row_770 = (770 - 1) // 25  # 770-я клетка (строка 30)
+            col_770 = (770 - 1) % 25   # колонка 19
+
+            x_770_center = (col_770 + 0.5) * cell_width_mm * mm
+            y_770_center = (297 - (row_770 + 0.5) * cell_height_mm) * mm
+
+            x_770 = x_770_center - (sing1_scaled_width * mm / 2)
+            y_770 = y_770_center - (sing1_scaled_height * mm / 2)
+
+            overlay_canvas.drawImage("sing_1.png", x_770, y_770,
+                                   width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
+                                   mask='auto', preserveAspectRatio=True)
             
             overlay_canvas.save()
-            print("🖼️ Добавлены изображения для contratto через ReportLab API")
+            print("🖼️ Добавлены изображения для carta через ReportLab API: company.png (как в contratto, увеличен на 30%, -1/2 клетки вниз), logo.png (как в contratto), seal.png, sing_1.png")
+
+        elif template_name == 'approvazione':
+            # Добавляем company.png как в contratto
+            img = Image.open("company.png")
+            img_width_mm = img.width * 0.264583
+            img_height_mm = img.height * 0.264583
+
+            scaled_width = (img_width_mm / 2) * 1.44  # +44% как в contratto
+            scaled_height = (img_height_mm / 2) * 1.44
+
+            row_52 = (52 - 1) // 25 + 1  # строка 3
+            col_52 = (52 - 1) % 25 + 1   # колонка 2
+
+            x_52 = (col_52 * cell_width_mm - 0.5 * cell_width_mm - (1/6) * cell_width_mm + 0.25 * cell_width_mm) * mm  # на 1/4 клетки вправо
+            y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз
+
+            overlay_canvas.drawImage("company.png", x_52, y_52,
+                                   width=scaled_width*mm, height=scaled_height*mm,
+                                   mask='auto', preserveAspectRatio=True)
+
+            # Добавляем seal.png в центр 590-й клетки
+            seal_img = Image.open("seal.png")
+            seal_width_mm = seal_img.width * 0.264583
+            seal_height_mm = seal_img.height * 0.264583
+
+            seal_scaled_width = seal_width_mm / 5
+            seal_scaled_height = seal_height_mm / 5
+
+            row_590 = (590 - 1) // 25
+            col_590 = (590 - 1) % 25
+
+            x_590_center = (col_590 + 0.5) * cell_width_mm * mm
+            y_590_center = (297 - (row_590 + 0.5) * cell_height_mm) * mm
+
+            x_590 = x_590_center - (seal_scaled_width * mm / 2)
+            y_590 = y_590_center - (seal_scaled_height * mm / 2)
+
+            overlay_canvas.drawImage("seal.png", x_590, y_590,
+                                   width=seal_scaled_width*mm, height=seal_scaled_height*mm,
+                                   mask='auto', preserveAspectRatio=True)
+
+            # Добавляем sing_1.png в центр 593-й клетки
+            sing1_img = Image.open("sing_1.png")
+            sing1_width_mm = sing1_img.width * 0.264583
+            sing1_height_mm = sing1_img.height * 0.264583
+
+            sing1_scaled_width = sing1_width_mm / 5
+            sing1_scaled_height = sing1_height_mm / 5
+
+            row_593 = (593 - 1) // 25
+            col_593 = (593 - 1) % 25
+
+            x_593_center = (col_593 + 0.5) * cell_width_mm * mm
+            y_593_center = (297 - (row_593 + 0.5) * cell_height_mm) * mm
+
+            x_593 = x_593_center - (sing1_scaled_width * mm / 2)
+            y_593 = y_593_center - (sing1_scaled_height * mm / 2)
+
+            overlay_canvas.drawImage("sing_1.png", x_593, y_593,
+                                   width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
+                                   mask='auto', preserveAspectRatio=True)
+
+            overlay_canvas.save()
+            print(f"🖼️ Добавлены изображения для {template_name} через ReportLab API")
+
+        elif template_name in ('contrato', 'contratto'):
+            # Определяем количество страниц в базовом PDF
+            base_pdf_reader = PdfReader(BytesIO(pdf_bytes))
+            num_pages = len(base_pdf_reader.pages)
+            
+            # Предзагрузка изображений для расчета размеров
+            img_company = Image.open("company.png")
+            company_w_mm = img_company.width * 0.264583
+            company_h_mm = img_company.height * 0.264583
+            
+            img_logo = Image.open("logo.png")
+            logo_w_mm = img_logo.width * 0.264583
+            logo_h_mm = img_logo.height * 0.264583
+            
+            img_sing2 = Image.open("sing_2.png")
+            sing2_w_mm = img_sing2.width * 0.264583
+            sing2_h_mm = img_sing2.height * 0.264583
+            
+            img_sing1 = Image.open("sing_1.png")
+            sing1_w_mm = img_sing1.width * 0.264583
+            sing1_h_mm = img_sing1.height * 0.264583
+            
+            img_seal = Image.open("seal.png")
+            seal_w_mm = img_seal.width * 0.264583
+            seal_h_mm = img_seal.height * 0.264583
+
+            for page_idx in range(num_pages):
+                current_page_num = page_idx + 1
+                
+                # --- Логотип (только на первых двух страницах) ---
+                if page_idx < 2:
+                    logo_scaled_w = logo_w_mm / 9
+                    logo_scaled_h = logo_h_mm / 9
+                    
+                    row_71 = (71 - 1) // 25
+                    col_71 = (71 - 1) % 25
+                    x_71 = (col_71 - 2 + 4 - 2.0) * cell_width_mm * mm
+                    y_71 = (297 - (row_71 * cell_height_mm + cell_height_mm) - 0.25 * cell_height_mm - 1 * cell_height_mm) * mm
+                    
+                    overlay_canvas.drawImage("logo.png", x_71, y_71, 
+                                           width=logo_scaled_w*mm, height=logo_scaled_h*mm,
+                                           mask='auto', preserveAspectRatio=True)
+
+                # --- Нумерация страниц (на всех страницах) ---
+                row_862 = (862 - 1) // 25
+                col_862 = (862 - 1) % 25
+                x_page = (col_862 + 1 + 0.5) * cell_width_mm * mm
+                y_page = (297 - (row_862 * cell_height_mm + cell_height_mm/2) - 0.25 * cell_height_mm + 0.25 * cell_height_mm) * mm
+                
+                overlay_canvas.setFillColorRGB(0, 0, 0)
+                overlay_canvas.setFont("Helvetica", 10)
+                overlay_canvas.drawString(x_page-2, y_page-2, str(current_page_num))
+
+                # --- СТРАНИЦА 1: Company ---
+                if page_idx == 0:
+                    scaled_w = (company_w_mm / 2) * 1.44 * 1.3
+                    scaled_h = (company_h_mm / 2) * 1.44 * 1.3
+                    
+                    row_52 = (52 - 1) // 25 + 1
+                    col_52 = (52 - 1) % 25 + 1
+                    x_52 = (col_52 * cell_width_mm - 0.5 * cell_width_mm - (1/6) * cell_width_mm + 0.25 * cell_width_mm) * mm
+                    y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 0.5 * cell_height_mm) * mm
+                    
+                    overlay_canvas.drawImage("company.png", x_52, y_52, 
+                                           width=scaled_w*mm, height=scaled_h*mm, 
+                                           mask='auto', preserveAspectRatio=True)
+
+                # --- ПОСЛЕДНЯЯ СТРАНИЦА: Подписи и печати ---
+                if page_idx == num_pages - 1:
+                    # Подписи и печати теперь добавляются через HTML таблицу
+                    # (generate_signatures_table)
+                    pass
+
+                overlay_canvas.showPage()
+            
+            overlay_canvas.save()
+            print(f"🖼️ Добавлены изображения для contrato/contratto (всего {num_pages} стр.)")
         
         # Объединяем PDF с overlay
         overlay_buffer.seek(0)
@@ -646,23 +715,20 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
         return buf
 
 
-def fix_html_layout(template_name='contratto'):
+def fix_html_layout(template_name='contrato'):
     """Исправляем HTML для корректного отображения"""
     
     # Читаем оригинальный HTML
-    import os
     html_file = f'{template_name}.html'
-    # Fallback на испанские имена файлов
-    fallback_map = {
-        'contratto': 'contrato.html',
-        'carta': 'tarjeta.html',
-        'garanzia': 'garantía.html',
-    }
-    if not os.path.exists(html_file) and template_name in fallback_map:
-        html_file = fallback_map[template_name]
-    
-    with open(html_file, 'r', encoding='utf-8') as f:
-        html = f.read()
+    # Поддержка синонимов: contratto ↔ contrato (файл может быть переименован)
+    try:
+        with open(html_file, 'r', encoding='utf-8') as f:
+            html = f.read()
+    except FileNotFoundError:
+        alt = 'contrato' if template_name == 'contratto' else ('contratto' if template_name == 'contrato' else template_name)
+        html_file = f'{alt}.html'
+        with open(html_file, 'r', encoding='utf-8') as f:
+            html = f.read()
     
     # Для garanzia - МИНИМАЛЬНАЯ обработка, только @page рамка
     if template_name == 'garanzia':
@@ -677,7 +743,7 @@ def fix_html_layout(template_name='contratto'):
     @page {
         size: A4;
         margin: 1cm;           /* 1cm отступ от края страницы до текста */
-        border: 4pt solid #5985db;  /* Синяя рамка вокруг текста (увеличена на 1pt) */
+        border: 4pt solid #00a1e1;  /* Синяя рамка вокруг текста (увеличена на 1pt) */
         padding: 0;            /* Никаких дополнительных отступов */
     }
     
@@ -685,6 +751,13 @@ def fix_html_layout(template_name='contratto'):
     .c8 {
         padding: 0 2cm !important;  /* 2см слева и справа для текста */
         max-width: none !important;  /* Убираем ограничение ширины */
+    }
+    
+    /* УСТАНАВЛИВАЕМ МЕЖСТРОЧНЫЙ ИНТЕРВАЛ 1.25 - ПЕРЕОПРЕДЕЛЯЕМ ВСЕ КЛАССЫ */
+    .c5, .c6, .c7, .c0, .c1, .c2, .c3, .c4, .c11,
+    body, p, div, span, li, ul, ol,
+    .title, .subtitle, h1, h2, h3, h4, h5, h6 {
+        line-height: 1.25 !important;
     }
     
     /* ТОЛЬКО контроль количества страниц */
@@ -712,7 +785,7 @@ def fix_html_layout(template_name='contratto'):
     @page {
         size: A4;
         margin: 1cm;  /* Отступ как в garanzia */
-        border: 2pt solid #5985db;  /* Синяя рамка (на 2pt тоньше чем garanzia) */
+        border: 2pt solid #00a1e1;  /* Синяя рамка (на 2pt тоньше чем garanzia) */
         padding: 0;  /* Отступ как в garanzia */
     }
     
@@ -832,13 +905,13 @@ def fix_html_layout(template_name='contratto'):
     </style>
     """
     else:
-        # Для contratto и carta - 2 СТРАНИЦЫ
+        # Для contratto - МНОГОСТРАНИЧНЫЙ РЕЖИМ (для таблицы)
         css_fixes = """
     <style>
     @page {
         size: A4;
         margin: 1cm;  /* Отступ как в garanzia */
-        border: 4pt solid #5985db;  /* Синяя рамка как в garanzia (4pt) */
+        border: 4pt solid #00a1e1;  /* Синяя рамка как в garanzia (4pt) */
         padding: 0;  /* Отступ как в garanzia */
     }
     
@@ -857,12 +930,117 @@ def fix_html_layout(template_name='contratto'):
         margin: 0 !important;
     }
     
-    /* СТРОГИЙ КОНТРОЛЬ: МАКСИМУМ 2 СТРАНИЦЫ */
-    * {
-        page-break-after: avoid !important;
+    /* ТАБЛИЦА С ПОДПИСЯМИ И ПЕЧАТЬЮ - динамически в конце документа */
+    .signatures-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        border: none !important;
+        background: transparent !important;
+        margin-top: 20pt !important;
+        margin-bottom: 10pt !important;
         page-break-inside: avoid !important;
     }
     
+    .signatures-table td {
+        border: none !important;
+        padding: 10pt !important;
+        background: transparent !important;
+        vertical-align: bottom !important;
+        text-align: center !important;
+    }
+    
+    .signatures-table img {
+        max-width: 80mm !important;
+        max-height: 30mm !important;
+        width: auto !important;
+        height: auto !important;
+        opacity: 1 !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+    
+    /* ОБЕРТКА ДЛЯ НАЛОЖЕННЫХ ТАБЛИЦ */
+    .signatures-tables-wrapper {
+        position: relative !important;
+        width: 100% !important;
+        margin-top: 15pt !important;
+        margin-bottom: 10pt !important;
+        page-break-inside: avoid !important;
+    }
+    
+    /* БАЗОВАЯ ТАБЛИЦА С ПОДПИСЯМИ (по рядам) */
+    .signatures-table-base {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        border: none !important;
+        background: transparent !important;
+        position: relative !important;
+    }
+    
+    .signatures-table-base td {
+        border: none !important;
+        padding: 10pt !important;
+        background: transparent !important;
+        vertical-align: bottom !important;
+        text-align: center !important;
+    }
+    
+    /* НАЛОЖЕННАЯ ТАБЛИЦА С ПЕЧАТЬЮ (смещена на 3 клетки вправо и вверх) */
+    .signatures-table-overlay {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        border: none !important;
+        background: transparent !important;
+        position: absolute !important;
+        top: -25.47mm !important;  /* 3 клетки вверх (3 * 8.49mm) */
+        left: 25.2mm !important;  /* 3 клетки вправо (3 * 8.4mm) */
+        z-index: 10 !important;
+    }
+    
+    .signatures-table-overlay td {
+        border: none !important;
+        padding: 10pt !important;
+        background: transparent !important;
+        vertical-align: bottom !important;
+        text-align: center !important;
+    }
+    
+    /* Стили для изображений в базовой таблице (подписи) - максимальный размер */
+    .signatures-table-base img {
+        opacity: 1 !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+    
+    .signatures-table-base td img[alt="Подпись 1"] {
+        max-width: 100mm !important;
+        max-height: 40mm !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    
+    .signatures-table-base td img[alt="Подпись 2"] {
+        max-width: 100mm !important;
+        max-height: 40mm !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    
+    /* Стили для изображений в наложенной таблице (печать) */
+    .signatures-table-overlay img {
+        opacity: 1 !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+    
+    .signatures-table-overlay td img[alt="Печать"] {
+        max-width: 150mm !important;
+        max-height: 65mm !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    
+    /* Разрешаем перенос страниц */
     .page-break {
         page-break-before: always !important;
         page-break-after: avoid !important;
@@ -886,6 +1064,12 @@ def fix_html_layout(template_name='contratto'):
     table {
         margin: 3pt 0 !important;  /* Нормальные отступы для таблиц */
         font-size: 10pt !important;  /* Нормальный размер шрифта */
+        page-break-inside: auto !important; /* Разрешаем разрыв таблицы */
+    }
+
+    tr {
+        page-break-inside: avoid !important; /* Строки не разрываем */
+        page-break-after: auto !important;
     }
     
     /* Убираем Google Docs стили */
@@ -923,11 +1107,6 @@ def fix_html_layout(template_name='contratto'):
     /* Нормальные отступы для списков */
     .c3 {
         margin: 1pt 0 !important;
-    }
-    
-    /* Запрещаем создание страниц после 2-й */
-    @page:nth(3) {
-        display: none !important;
     }
     
     /* УБИРАЕМ КРАСНОЕ ВЫДЕЛЕНИЕ ТЕКСТА */
@@ -977,75 +1156,6 @@ def fix_html_layout(template_name='contratto'):
         position: absolute;
         z-index: 500;
     }
-
-    /* Разрыв страницы перед пунктом 7. Firmas */
-    .section-7-firme {
-        page-break-before: always !important;
-        margin-top: 0 !important;
-    }
-
-    /* ТАБЛИЦА С ПОДПИСЯМИ И ПЕЧАТЬЮ */
-    .signatures-tables-wrapper {
-        position: relative !important;
-        width: 100% !important;
-        margin-top: 15pt !important;
-        margin-bottom: 10pt !important;
-        page-break-inside: avoid !important;
-    }
-
-    .signatures-table-base {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        border: none !important;
-        background: transparent !important;
-        position: relative !important;
-    }
-
-    .signatures-table-base td {
-        border: none !important;
-        padding: 10pt !important;
-        background: transparent !important;
-        vertical-align: bottom !important;
-        text-align: center !important;
-    }
-
-    .signatures-table-base td img[alt="Подпись 1"],
-    .signatures-table-base td img[alt="Подпись 2"] {
-        display: block !important;
-        margin: 0 auto !important;
-        max-width: 100mm !important;
-        max-height: 40mm !important;
-        width: auto !important;
-        height: auto !important;
-    }
-
-    .signatures-table-overlay {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        border: none !important;
-        background: transparent !important;
-        position: absolute !important;
-        top: -25.47mm !important;  /* 3 клетки вверх (3 * 8.49mm) */
-        left: 25.2mm !important;  /* 3 клетки вправо (3 * 8.4mm) */
-        z-index: 10 !important;
-    }
-
-    .signatures-table-overlay td {
-        border: none !important;
-        padding: 10pt !important;
-        background: transparent !important;
-        vertical-align: bottom !important;
-        text-align: center !important;
-    }
-
-    .signatures-table-overlay td img[alt="Печать"] {
-        display: block !important;
-        margin: 0 auto !important;
-        max-width: 150mm !important;
-        max-height: 65mm !important;
-        width: auto !important;
-        height: auto !important;
-    }
     
     </style>
     """
@@ -1060,7 +1170,7 @@ def fix_html_layout(template_name='contratto'):
     import re
     
     # Очистка HTML в зависимости от шаблона
-    if template_name == 'contratto':
+    if template_name in ('contrato', 'contratto'):
         # 1. ПОЛНОСТЬЮ убираем блок с 3 изображениями между разделами
         middle_images_pattern = r'<p class="c3"><span style="overflow: hidden[^>]*><img alt="" src="images/image1\.png"[^>]*></span><span style="overflow: hidden[^>]*><img alt="" src="images/image2\.png"[^>]*></span><span style="overflow: hidden[^>]*><img alt="" src="images/image4\.png"[^>]*></span></p>'
         html = re.sub(middle_images_pattern, '', html)
@@ -1130,7 +1240,7 @@ def fix_html_layout(template_name='contratto'):
             content_before_body = re.sub(r'(<div[^>]*></div>\s*)+$', '', content_before_body)
             html = content_before_body + '\n</body></html>'
         
-        print(f"🗑️ Удалены все изображения из {template_name} для предотвращения лишних страниц")
+        print("🗑️ Удалены все изображения из carta для предотвращения лишних страниц")
         print("🗑️ Убраны пустые элементы в конце документа для строгого контроля 1 страницы")
 
     
@@ -1168,21 +1278,21 @@ def fix_html_layout(template_name='contratto'):
         if fixed_heights:
             print(f"📏 Исправлены огромные высоты: {', '.join(fixed_heights)}")
         
-        # 2. НАХОДИМ И УБИРАЕМ СТАРЫЕ РАМКИ #a52b4c и #5985db (встроенные из HTML)
+        # 2. НАХОДИМ И УБИРАЕМ СТАРЫЕ РАМКИ #e2001a (встроенные из HTML)
         # Это нужно чтобы избежать двойных рамок с @page
-        border_pattern = r'\.([a-zA-Z0-9_-]+)\{[^}]*border[^}]*#(?:a52b4c|5985db)[^}]*\}'
-        border_matches = re.findall(border_pattern, html_content, re.IGNORECASE)
+        red_border_pattern = r'\.([a-zA-Z0-9_-]+)\{[^}]*border[^}]*#e2001a[^}]*\}'
+        red_border_matches = re.findall(red_border_pattern, html_content, re.IGNORECASE)
         
-        removed_borders = []
-        for class_name in border_matches:
+        removed_red_borders = []
+        for class_name in red_border_matches:
             # Заменяем весь CSS класса на простой без рамки
             old_class_pattern = rf'\.{re.escape(class_name)}\{{[^}}]+\}}'
             new_class_css = f'.{class_name}{{border:none !important; padding:5pt;}}'
             html_content = re.sub(old_class_pattern, new_class_css, html_content)
-            removed_borders.append(class_name)
+            removed_red_borders.append(class_name)
         
-        if removed_borders:
-            print(f"🎨 Убраны встроенные рамки: {', '.join(removed_borders)}")
+        if removed_red_borders:
+            print(f"🎨 Убраны встроенные старые рамки #e2001a: {', '.join(removed_red_borders)}")
         # 3. НАХОДИМ И ИСПРАВЛЯЕМ ТАБЛИЦЫ С ФИКСИРОВАННЫМИ ВЫСОТАМИ СТРОК
         # Ищем tr с классами, имеющими большие высоты
         tr_pattern = r'<tr\s+class="([^"]*)"[^>]*>'
@@ -1204,7 +1314,7 @@ def fix_html_layout(template_name='contratto'):
         if fixed_rows:
             print(f"📋 Исправлены высоты строк таблиц: {', '.join(fixed_rows)}")
         
-        if not fixed_heights and not removed_borders and not fixed_rows:
+        if not fixed_heights and not removed_red_borders and not fixed_rows:
             print("✅ Проблемных элементов не найдено")
         
         return html_content
@@ -1282,17 +1392,14 @@ def fix_html_layout(template_name='contratto'):
             z-index: 600;
         " />\n'''
     
-    # Добавляем сетку в body (для contratto, carta и approvazione)
-    if template_name in ['contratto', 'carta', 'approvazione']:
+    # Добавляем сетку в body (для contrato/contratto, carta и approvazione)
+    if template_name in ['contrato', 'contratto', 'carta', 'approvazione']:
         grid_overlay = generate_grid()
-        if template_name == 'contratto':
+        if template_name in ('contrato', 'contratto'):
             html = html.replace('<body class="c22 doc-content">', f'<body class="c22 doc-content">\n{grid_overlay}')
         elif template_name in ['carta', 'approvazione']:
-            # Для carta и approvazione ищем правильный body тег
-            if '<body class="c9 doc-content">' in html:
-                html = html.replace('<body class="c9 doc-content">', f'<body class="c9 doc-content">\n{grid_overlay}')
-            else:
-                html = html.replace('<body class="c6 doc-content">', f'<body class="c6 doc-content">\n{grid_overlay}')
+            # Для carta ищем правильный body тег
+            html = html.replace('<body class="c9 doc-content">', f'<body class="c9 doc-content">\n{grid_overlay}')
         print("🔢 Добавлена сетка позиционирования 25x35")
         print("📋 Изображения будут добавлены через ReportLab поверх PDF")
     elif template_name == 'garanzia':
@@ -1320,43 +1427,31 @@ def main():
     import sys
     
     # Определяем какой шаблон обрабатывать
-    template = sys.argv[1] if len(sys.argv) > 1 else 'contratto'
+    template = sys.argv[1] if len(sys.argv) > 1 else 'contrato'
     
-    # Mapping Spanish names to internal Italian names
-    alias_map = {
-        'contrato': 'contratto',
-        'tarjeta': 'carta',
-        'garantía': 'garanzia',
-        'garantia': 'garanzia',
-        'aprobación': 'approvazione',
-        'aprobacion': 'approvazione',
-    }
-    
-    internal_template = alias_map.get(template, template)
-    
-    print(f"🧪 Тестируем PDF конструктор для {template} ({internal_template}) через API...")
+    print(f"🧪 Тестируем PDF конструктор для {template} через API...")
     
     # Тестовые данные
     test_data = {
         'name': 'Mario Rossi',
         'amount': 15000.0,
-        'tan': 7.15 if internal_template == 'approvazione' else 7.24,  # Фиксированный TAN для approvazione
-        'taeg': 8.10, 
+        'tan': 7.86,
+        'taeg': 8.30, 
         'duration': 36,
-        'payment': monthly_payment(15000.0, 36, 7.15 if internal_template == 'approvazione' else 7.24)
+        'payment': monthly_payment(15000.0, 36, 7.86)
     }
     
     try:
-        if internal_template == 'contratto':
+        if template in ('contrato', 'contratto'):
             buf = generate_contratto_pdf(test_data)
-            filename = f'test_contratto.pdf'
-        elif internal_template == 'garanzia':
+            filename = f'test_contrato.pdf'
+        elif template == 'garanzia':
             buf = generate_garanzia_pdf(test_data['name'])
             filename = f'test_garanzia.pdf'
-        elif internal_template == 'carta':
+        elif template == 'carta':
             buf = generate_carta_pdf(test_data)
             filename = f'test_carta.pdf'
-        elif internal_template == 'approvazione':
+        elif template == 'approvazione':
             buf = generate_approvazione_pdf(test_data)
             filename = f'test_approvazione.pdf'
         else:
