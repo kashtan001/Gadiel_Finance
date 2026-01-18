@@ -451,7 +451,7 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             y_590_center = (297 - (row_590 + 0.5) * cell_height_mm) * mm
 
             x_590 = x_590_center - (seal_scaled_width * mm / 2) + 2 * cell_width_mm * mm  # +2 клетки вправо
-            y_590 = y_590_center - (seal_scaled_height * mm / 2) - 5 * cell_height_mm * mm  # +12 клеток вниз
+            y_590 = y_590_center - (seal_scaled_height * mm / 2) - 7.5 * cell_height_mm * mm  # +12 клеток вниз
 
             overlay_canvas.drawImage("seal.png", x_590, y_590,
                                    width=seal_scaled_width*mm, height=seal_scaled_height*mm,
@@ -472,7 +472,7 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             y_593_center = (297 - (row_593 + 0.5) * cell_height_mm) * mm
 
             x_593 = x_593_center - (sing1_scaled_width * mm / 2) + 2 * cell_width_mm * mm  # +2 клетки вправо
-            y_593 = y_593_center - (sing1_scaled_height * mm / 2) - 5 * cell_height_mm * mm  # +12 клеток вниз
+            y_593 = y_593_center - (sing1_scaled_height * mm / 2) - 7.5 * cell_height_mm * mm  # +12 клеток вниз
             
             overlay_canvas.drawImage("sing_1.png", x_593, y_593, 
                                    width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
