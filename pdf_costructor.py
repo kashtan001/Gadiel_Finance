@@ -422,57 +422,57 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             img = Image.open("company.png")
             img_width_mm = img.width * 0.264583
             img_height_mm = img.height * 0.264583
-            
+
             scaled_width = (img_width_mm / 2) * 1.44  # +44% как в contratto
             scaled_height = (img_height_mm / 2) * 1.44
-            
+
             row_52 = (52 - 1) // 25 + 1  # строка 3
             col_52 = (52 - 1) % 25 + 1   # колонка 2
-            
+
             x_52 = (col_52 * cell_width_mm - 0.5 * cell_width_mm - (1/6) * cell_width_mm + 0.25 * cell_width_mm) * mm  # на 1/4 клетки вправо
             y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз
-            
-            overlay_canvas.drawImage("company.png", x_52, y_52, 
-                                   width=scaled_width*mm, height=scaled_height*mm, 
+
+            overlay_canvas.drawImage("company.png", x_52, y_52,
+                                   width=scaled_width*mm, height=scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
-            
-            # Добавляем seal.png в центр 590-й клетки
+
+            # Добавляем seal.png в центр 590-й клетки со смещением +7 вниз +2 вправо
             seal_img = Image.open("seal.png")
             seal_width_mm = seal_img.width * 0.264583
             seal_height_mm = seal_img.height * 0.264583
-            
+
             seal_scaled_width = seal_width_mm / 5
             seal_scaled_height = seal_height_mm / 5
-            
+
             row_590 = (590 - 1) // 25
             col_590 = (590 - 1) % 25
-            
+
             x_590_center = (col_590 + 0.5) * cell_width_mm * mm
             y_590_center = (297 - (row_590 + 0.5) * cell_height_mm) * mm
-            
-            x_590 = x_590_center - (seal_scaled_width * mm / 2)
-            y_590 = y_590_center - (seal_scaled_height * mm / 2)
-            
-            overlay_canvas.drawImage("seal.png", x_590, y_590, 
+
+            x_590 = x_590_center - (seal_scaled_width * mm / 2) + 2 * cell_width_mm * mm  # +2 клетки вправо
+            y_590 = y_590_center - (seal_scaled_height * mm / 2) + 7 * cell_height_mm * mm  # +7 клеток вниз
+
+            overlay_canvas.drawImage("seal.png", x_590, y_590,
                                    width=seal_scaled_width*mm, height=seal_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
-            
-            # Добавляем sing_1.png в центр 593-й клетки
+
+            # Добавляем sing_1.png в центр 593-й клетки со смещением +7 вниз +2 вправо
             sing1_img = Image.open("sing_1.png")
             sing1_width_mm = sing1_img.width * 0.264583
             sing1_height_mm = sing1_img.height * 0.264583
-            
+
             sing1_scaled_width = sing1_width_mm / 5
             sing1_scaled_height = sing1_height_mm / 5
-            
+
             row_593 = (593 - 1) // 25
             col_593 = (593 - 1) % 25
-            
+
             x_593_center = (col_593 + 0.5) * cell_width_mm * mm
             y_593_center = (297 - (row_593 + 0.5) * cell_height_mm) * mm
-            
-            x_593 = x_593_center - (sing1_scaled_width * mm / 2)
-            y_593 = y_593_center - (sing1_scaled_height * mm / 2)
+
+            x_593 = x_593_center - (sing1_scaled_width * mm / 2) + 2 * cell_width_mm * mm  # +2 клетки вправо
+            y_593 = y_593_center - (sing1_scaled_height * mm / 2) + 7 * cell_height_mm * mm  # +7 клеток вниз
             
             overlay_canvas.drawImage("sing_1.png", x_593, y_593, 
                                    width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
