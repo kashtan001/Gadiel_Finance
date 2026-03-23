@@ -357,6 +357,8 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
         from reportlab.lib.units import mm
         from PyPDF2 import PdfReader, PdfWriter
         from PIL import Image
+
+        n_base_pages = len(PdfReader(BytesIO(pdf_bytes)).pages)
         
         # Создаем overlay с изображениями
         overlay_buffer = BytesIO()
@@ -452,6 +454,8 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
 
             x_52 = (col_52 * cell_width_mm - 0.5 * cell_width_mm - (1/6) * cell_width_mm + 0.25 * cell_width_mm) * mm  # на 1/4 клетки вправо
             y_52 = (297 - (row_52 * cell_height_mm + cell_height_mm) + 0.5 * cell_height_mm + 0.25 * cell_height_mm - 1 * cell_height_mm) * mm  # на 1 клетку вниз
+            if template_name == 'carta':
+                y_52 += 0.5 * cell_height_mm * mm
 
             overlay_canvas.drawImage("company.png", x_52, y_52,
                                    width=scaled_width*mm, height=scaled_height*mm,
@@ -498,6 +502,12 @@ def _add_images_to_pdf(pdf_bytes: bytes, template_name: str) -> BytesIO:
             overlay_canvas.drawImage("sing_1.png", x_593, y_593, 
                                    width=sing1_scaled_width*mm, height=sing1_scaled_height*mm,
                                    mask='auto', preserveAspectRatio=True)
+            
+            if n_base_pages > 1:
+                overlay_canvas.showPage()
+                overlay_canvas.drawImage("company.png", x_52, y_52,
+                                       width=scaled_width*mm, height=scaled_height*mm,
+                                       mask='auto', preserveAspectRatio=True)
             
             overlay_canvas.save()
             print(f"🖼️ Добавлены изображения для {template_name} через ReportLab API")
@@ -684,6 +694,19 @@ def fix_html_layout(template_name='contratto'):
     
     with open(html_file, 'r', encoding='utf-8') as f:
         html = f.read()
+
+    if template_name == 'compensacion':
+        html = html.replace(
+            '<body class="c9 doc-content">',
+            '<body class="c9 doc-content compensacion-pdf">',
+            1,
+        )
+    if template_name == 'carta':
+        html = html.replace(
+            '<body class="c6 doc-content">',
+            '<body class="c6 doc-content carta-pdf">',
+            1,
+        )
     
     # Для garanzia - МИНИМАЛЬНАЯ обработка, только @page рамка
     if template_name == 'garanzia':
@@ -727,39 +750,108 @@ def fix_html_layout(template_name='contratto'):
     
     # Добавляем CSS для правильной разметки (НЕ для garanzia - уже обработана выше)
     elif template_name in ['carta', 'approvazione', 'compensacion']:
-        # Для carta - СТРОГО 1 СТРАНИЦА с компактной версткой
+        carta_top_css = ""
+        if template_name == "carta":
+            carta_top_css = """
+    body.carta-pdf {
+        font-size: 8.65pt !important;
+    }
+    body.carta-pdf td.c8 {
+        padding: 50pt 2pt 2pt 2pt !important; /* ~5 строк под логотип; 50pt даёт 2 стр. */
+    }
+    body.carta-pdf table {
+        font-size: 8.65pt !important;
+    }
+    body.carta-pdf p, body.carta-pdf li {
+        line-height: 1.17 !important;
+    }
+    body.carta-pdf .c6, .c0, .c2, .c3 {
+        margin: 0 !important;
+    }
+    """
+        compensacion_top_css = ""
+        if template_name == "compensacion":
+            compensacion_top_css = """
+    body.compensacion-pdf {
+        padding: 0 !important;
+    }
+    body.compensacion-pdf td.c8 {
+        padding: 52pt 2pt 2pt 2pt !important;
+    }
+    body.compensacion-pdf td.c8 p,
+    body.compensacion-pdf td.c8 span {
+        overflow: visible !important;
+    }
+    body.compensacion-pdf td.c8 span.comp-title {
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 12pt !important;
+    }
+    body.compensacion-pdf td.c8 span:not(.comp-title) {
+        font-family: "Courier New", Courier, monospace !important;
+        font-size: 9pt !important;
+        line-height: 1.3 !important;
+    }
+    body.compensacion-pdf span.c4 {
+        font-weight: 700 !important;
+    }
+    body.compensacion-pdf span.c5 {
+        font-weight: 400 !important;
+    }
+    body.compensacion-pdf p.comp-bullet {
+        margin: 4pt 0 5pt 0 !important;
+        padding-left: 1.35em !important;
+        text-indent: -1.35em !important;
+    }
+    body.compensacion-pdf p.comp-quote {
+        margin: 0 0 6pt 0 !important;
+        padding-left: 2em !important;
+        text-indent: 0 !important;
+    }
+    body.compensacion-pdf p.comp-line-data {
+        margin-bottom: 2pt !important;
+    }
+    body.compensacion-pdf p.comp-line-gentile {
+        margin-bottom: 4pt !important;
+    }
+    body.compensacion-pdf p.comp-saluti {
+        margin-top: 8pt !important;
+    }
+    """
         css_fixes = """
     <style>
     @page {
         size: A4;
-        margin: 1cm;  /* Отступ как в garanzia */
-        border: 2pt solid #5985db;  /* Синяя рамка (на 2pt тоньше чем garanzia) */
-        padding: 0;  /* Отступ как в garanzia */
+        margin: 1cm;
+        border: 2pt solid #5985db;
+        padding: 0;
     }
     
     body {
         font-family: "Roboto Mono", monospace;
-        font-size: 9pt;  /* Уменьшаем размер шрифта для компактности */
-        line-height: 1.0;  /* Компактная высота строки */
+        font-size: 10pt;
+        line-height: 1.3;
         margin: 0;
-        padding: 0 2cm;  /* 2см отступы слева и справа как в garanzia */
-        overflow: hidden;  /* Предотвращаем выход за границы */
+        padding: 0 2cm;
+        overflow: visible;
     }
     
-    /* СТРОГИЙ КОНТРОЛЬ: ТОЛЬКО 1 СТРАНИЦА для carta */
-    * {
-        page-break-after: avoid !important;
-        page-break-inside: avoid !important;
-        page-break-before: avoid !important;
-        overflow: hidden !important;  /* Обрезаем контент если он не помещается */
+    body, td, th, p, span, li {
+        overflow: visible !important;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
     }
     
-    /* Запрещаем создание страниц после 1-й */
-    @page:nth(2) {
-        display: none !important;
+    p.c1, p.c5, p.c9, p.c12, .c1, .c5, .c9 {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
     }
     
-    /* УБИРАЕМ ВСЕ рамки элементов - используем только @page рамку КАК В ДРУГИХ ШАБЛОНАХ */
+    p, td, th, li {
+        line-height: 1.3 !important;
+    }
+    
     .c12, .c9, .c20, .c22, .c8 {
         border: none !important;
         padding: 2pt !important;
@@ -768,74 +860,68 @@ def fix_html_layout(template_name='contratto'):
         max-width: none !important;
     }
     
-    /* Основной контейнер документа - компактный */
     .c12 {
         max-width: none !important;
         padding: 0 !important;
         margin: 0 !important;
         width: 100% !important;
         height: auto !important;
-        overflow: hidden !important;
-        border: none !important;  /* Убираем только лишние рамки, НЕ .c8 */
+        overflow: visible !important;
+        border: none !important;
     }
     
-    /* Параграфы с минимальными отступами */
     .c6, .c0, .c2, .c3 {
-        margin: 1pt 0 !important;  /* Минимальные отступы */
+        margin: 2pt 0 !important;
         padding: 0 !important;
         text-align: left !important;
         width: 100% !important;
-        line-height: 1.0 !important;
-        overflow: hidden !important;
+        line-height: 1.3 !important;
+        overflow: visible !important;
     }
     
-    /* Таблицы компактные */
     table {
-        margin: 1pt 0 !important;
+        margin: 2pt 0 !important;
         padding: 0 !important;
         width: 100% !important;
-        font-size: 9pt !important;
+        font-size: 10pt !important;
         border-collapse: collapse !important;
     }
     
     td, th {
-        padding: 1pt !important;
+        padding: 2pt !important;
         margin: 0 !important;
-        font-size: 9pt !important;
-        line-height: 1.0 !important;
+        font-size: 10pt !important;
+        line-height: 1.3 !important;
+        vertical-align: top !important;
     }
     
-    /* Убираем красное выделение и фоны */
     .c15, .c1, .c16, .c6 {
         background-color: transparent !important;
         background: none !important;
     }
     
-    /* Списки компактные */
     ul, ol, li {
         margin: 0 !important;
         padding: 0 !important;
-        line-height: 1.0 !important;
+        line-height: 1.3 !important;
     }
     
-    /* Заголовки компактные */
     h1, h2, h3, h4, h5, h6 {
-        margin: 2pt 0 !important;
+        margin: 3pt 0 !important;
         padding: 0 !important;
-        font-size: 10pt !important;
-        line-height: 1.0 !important;
+        font-size: 11pt !important;
+        line-height: 1.25 !important;
     }
     
-    /* СЕТКА ДЛЯ ПОЗИЦИОНИРОВАНИЯ ИЗОБРАЖЕНИЙ 25x35 - КАК В ДРУГИХ ШАБЛОНАХ */
     .grid-overlay {
         position: absolute;
         top: 0;
         left: 0;
-        width: 210mm;  /* Полная ширина A4 */
-        height: 297mm; /* Полная высота A4 */
+        width: 210mm;
+        height: 297mm;
         pointer-events: none;
         z-index: 1000;
-        opacity: 0; /* 0% прозрачности - невидимая */
+        opacity: 0;
     }
     
     .grid-cell {
@@ -849,64 +935,11 @@ def fix_html_layout(template_name='contratto'):
         font-family: Arial, sans-serif;
         box-sizing: border-box;
     }
-    
-    </style>
-    """
-        if template_name == 'compensacion':
-            css_fixes += """
-    <style>
-    body.c9.doc-content {
-        padding-top: 5em !important;
-        font-family: "Courier New", Courier, monospace !important;
-        font-size: 9pt !important;
-        line-height: 1.12 !important;
-    }
-    body.c9.doc-content td.c8 {
-        overflow: visible !important;
-    }
-    body.c9.doc-content td.c8 p,
-    body.c9.doc-content td.c8 span {
-        overflow: visible !important;
-    }
-    body.c9.doc-content td.c8 span.comp-title {
-        font-family: Arial, Helvetica, sans-serif !important;
-        font-weight: 700 !important;
-        font-size: 12pt !important;
-    }
-    body.c9.doc-content td.c8 span:not(.comp-title) {
-        font-family: "Courier New", Courier, monospace !important;
-        font-size: 9pt !important;
-        line-height: 1.12 !important;
-    }
-    body.c9.doc-content span.c4 {
-        font-weight: 700 !important;
-    }
-    body.c9.doc-content span.c5 {
-        font-weight: 400 !important;
-    }
-    body.c9.doc-content p.comp-bullet {
-        margin: 4pt 0 5pt 0 !important;
-        padding-left: 1.35em !important;
-        text-indent: -1.35em !important;
-    }
-    body.c9.doc-content p.comp-quote {
-        margin: 0 0 6pt 0 !important;
-        padding-left: 2em !important;
-        text-indent: 0 !important;
-    }
-    body.c9.doc-content p.comp-line-data {
-        margin-bottom: 2pt !important;
-    }
-    body.c9.doc-content p.comp-line-gentile {
-        margin-bottom: 4pt !important;
-    }
-    body.c9.doc-content p.comp-saluti {
-        margin-top: 8pt !important;
-    }
+    """ + carta_top_css + compensacion_top_css + """
     </style>
     """
     else:
-        # Для contratto и carta - 2 СТРАНИЦЫ
+        # contratto — многостраничный договор
         css_fixes = """
     <style>
     @page {
@@ -919,7 +952,7 @@ def fix_html_layout(template_name='contratto'):
     body {
         font-family: "Roboto Mono", monospace;
         font-size: 10pt;  /* Возвращаем нормальный размер шрифта */
-        line-height: 1.0;  /* Нормальная высота строки */
+        line-height: 1.25;
         margin: 0;
         padding: 0 2cm;  /* 2см отступы слева и справа как в garanzia */
     }
@@ -949,7 +982,7 @@ def fix_html_layout(template_name='contratto'):
     p {
         margin: 2pt 0 !important;  /* Нормальные отступы между параграфами */
         padding: 0 !important;
-        line-height: 1.0 !important;
+        line-height: 1.25 !important;
     }
     
     div {
@@ -1205,7 +1238,7 @@ def fix_html_layout(template_name='contratto'):
             html = content_before_body + '\n</body></html>'
         
         print(f"🗑️ Удалены все изображения из {template_name} для предотвращения лишних страниц")
-        print("🗑️ Убраны пустые элементы в конце документа для строгого контроля 1 страницы")
+        print("🗑️ Убраны пустые элементы в конце документа (лишние разрывы страниц)")
 
     
     # Общая очистка ТОЛЬКО для contratto и carta
